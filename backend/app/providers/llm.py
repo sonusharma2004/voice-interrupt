@@ -161,7 +161,7 @@ async def _create(**kwargs: Any) -> Any:
             groq_models.append(model)
     last: Exception | None = None
     if settings.groq_api_key:
-        client = AsyncGroq(api_key=settings.groq_api_key)
+        client = AsyncGroq(api_key=settings.groq_api_key, max_retries=0)
         for i, model in enumerate(groq_models):
             try:
                 log.info("llm groq %s", model)
@@ -175,7 +175,10 @@ async def _create(**kwargs: Any) -> Any:
             except Exception as exc:
                 last = exc
                 nxt = groq_models[i + 1] if i + 1 < len(groq_models) else "openai"
-                if is_rate_limit(exc) or is_model_missing(exc):
+                if is_rate_limit(exc):
+                    log.warning("%s on %s, skipping Groq retries, trying %s", type(exc).__name__, model, nxt)
+                    break
+                if is_model_missing(exc):
                     log.warning("%s on %s, trying %s", type(exc).__name__, model, nxt)
                     continue
                 raise
