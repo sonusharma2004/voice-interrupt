@@ -72,14 +72,30 @@ export class VoiceEngine {
 
   async stop() {
     this.flush();
-    this.capture?.disconnect();
-    this.source?.disconnect();
-    this.stream?.getTracks().forEach((t) => t.stop());
-    await this.ctx?.close();
-    this.ctx = null;
-    this.stream = null;
+    const ctx = this.ctx;
+    const stream = this.stream;
+    try {
+      this.capture?.disconnect();
+    } catch {
+      /* already gone */
+    }
+    try {
+      this.source?.disconnect();
+    } catch {
+      /* already gone */
+    }
     this.capture = null;
     this.source = null;
+    this.stream = null;
+    this.ctx = null;
+    stream?.getTracks().forEach((t) => t.stop());
+    if (ctx && ctx.state !== "closed") {
+      try {
+        await ctx.close();
+      } catch {
+        /* already closed */
+      }
+    }
   }
 
   private async pump() {

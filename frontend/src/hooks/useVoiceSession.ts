@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { VoiceEngine } from "../audio/engine";
 import { bytesToBase64 } from "../audio/resample";
+import { isStopCommand } from "../audio/stopCommand";
 import type { InspectorEvent, Line, Pipeline, SessionState } from "../types";
 
 const ECHO_GUARD_MS = 400;
@@ -42,9 +43,13 @@ export function useVoiceSession() {
   const assistantIdRef = useRef<string | null>(null);
   const lastUiRef = useRef<number>(0);
   const lastRmsRef = useRef<number>(0);
-  const openMicRef = useRef(true);
+  const openMicRef = useRef(false);
+  const micWantedRef = useRef(false);
+  const hangingUpRef = useRef(false);
   const prerollRef = useRef<Uint8Array[]>([]);
-  const disableMicRef = useRef<() => Promise<void>>(async () => undefined);
+  const lastBargeAt = useRef(0);
+  const lastSpeakAt = useRef(0);
+  const disableMicRef = useRef<(notifyServer?: boolean) => Promise<void>>(async () => undefined);
   const handleRef = useRef<(msg: Record<string, unknown>) => void>(() => undefined);
 
   const pushEvent = useCallback((kind: string, detail: string) => {
@@ -54,8 +59,8 @@ export function useVoiceSession() {
 
   const setSessionState = useCallback((next: SessionState) => {
     stateRef.current = next;
-    if (next === "listening" || next === "interrupted") openMicRef.current = true;
-    if (next === "transcribing" || next === "thinking" || next === "speaking") openMicRef.current = false;
+    openMicRef.current =
+      micWantedRef.current && (next === "listening" || next === "interrupted");
     setState(next);
     setPipeline((p) => ({ ...p, state: next }));
   }, []);
@@ -76,6 +81,7 @@ export function useVoiceSession() {
   const maybeBargeIn = useCallback(
     (reason: string) => {
       const current = stateRef.current;
+      if (hangingUpRef.current || !micWantedRef.current) return;
       if (current !== "speaking" && current !== "thinking") return;
       if (current === "speaking") {
         const since = Date.now() - speakingSinceRef.current;
@@ -84,6 +90,7 @@ export function useVoiceSession() {
       }
       if (liveGenRef.current) ignoreGenRef.current.add(liveGenRef.current);
       openMicRef.current = true;
+      lastBargeAt.current = Date.now();
       flushPlaybackNow();
       strikeAssistant();
       const ws = wsRef.current;
@@ -128,11 +135,18 @@ export function useVoiceSession() {
 
       if (type === "state") {
         const next = msg.state as SessionState;
+        if (hangingUpRef.current && (next === "listening" || next === "interrupted")) {
+          setSessionState("idle");
+          return;
+        }
         if (gen) {
           liveGenRef.current = gen;
           setPipeline((p) => ({ ...p, generationId: gen }));
         }
-        if (next === "speaking") speakingSinceRef.current = Date.now();
+        if (next === "speaking") {
+          speakingSinceRef.current = Date.now();
+          lastSpeakAt.current = Date.now();
+        }
         if (next === "thinking") {
           assistantBufRef.current = "";
           assistantIdRef.current = uid();
@@ -147,6 +161,15 @@ export function useVoiceSession() {
         const text = String(msg.text || "");
         setLines((prev) => [...prev, { id: uid(), role: "user", text }]);
         pushEvent("stt", text);
+        const afterInterrupt =
+          Date.now() - lastBargeAt.current < 8000 || Date.now() - lastSpeakAt.current < 8000;
+        if (isStopCommand(text, afterInterrupt)) {
+          if (gen) ignoreGenRef.current.add(gen);
+          if (liveGenRef.current) ignoreGenRef.current.add(liveGenRef.current);
+          flushPlaybackNow();
+          setLines((prev) => prev.filter((l) => !(l.role === "assistant" && l.partial)));
+          void disableMicRef.current(true);
+        }
         return;
       }
 
@@ -206,8 +229,8 @@ export function useVoiceSession() {
 
       if (type === "voice_off") {
         flushPlaybackNow();
-        void disableMicRef.current();
-        setSessionState("idle");
+        setLines((prev) => prev.filter((l) => !(l.role === "assistant" && l.partial)));
+        void disableMicRef.current(false);
         pushEvent("voice", "hung up");
         return;
       }
@@ -263,12 +286,16 @@ export function useVoiceSession() {
   }, [openSocket]);
 
   const enableMic = useCallback(async () => {
-    if (engineRef.current?.capture) {
-      setMicOn(true);
-      return;
-    }
+    hangingUpRef.current = false;
+    micWantedRef.current = true;
     setError(null);
     openSocket();
+    if (engineRef.current?.capture) {
+      setMicOn(true);
+      setSessionState("listening");
+      wsRef.current?.send(JSON.stringify({ type: "voice_on" }));
+      return;
+    }
     const engine = engineRef.current ?? new VoiceEngine();
     engineRef.current = engine;
     engine.onPlaybackDone = () => {
@@ -297,15 +324,35 @@ export function useVoiceSession() {
     });
     setMicOn(true);
     setSessionState("listening");
+    wsRef.current?.send(JSON.stringify({ type: "voice_on" }));
   }, [onSpeechEnd, onSpeechStart, openSocket, setSessionState]);
 
-  const disableMic = useCallback(async () => {
-    await engineRef.current?.stop();
-    engineRef.current = null;
-    setMicOn(false);
-    setPipeline((p) => ({ ...p, micLive: false, rms: 0 }));
-    setSessionState("idle");
-  }, [setSessionState]);
+  const disableMic = useCallback(
+    async (notifyServer = true) => {
+      hangingUpRef.current = true;
+      micWantedRef.current = false;
+      openMicRef.current = false;
+      setMicOn(false);
+      setPipeline((p) => ({ ...p, micLive: false, rms: 0 }));
+      setSessionState("idle");
+      const engine = engineRef.current;
+      engineRef.current = null;
+      engine?.flush();
+      engine?.stream?.getTracks().forEach((t) => t.stop());
+      try {
+        await engine?.stop();
+      } catch {
+        /* capture already torn down */
+      }
+      if (notifyServer) {
+        const ws = wsRef.current;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "hang_up" }));
+        }
+      }
+    },
+    [setSessionState]
+  );
 
   disableMicRef.current = disableMic;
 
@@ -320,6 +367,11 @@ export function useVoiceSession() {
         strikeAssistant();
       }
       setLines((prev) => [...prev, { id: uid(), role: "user", text }]);
+      if (isStopCommand(text, Date.now() - lastSpeakAt.current < 8000)) {
+        void disableMicRef.current(true);
+        return;
+      }
+      hangingUpRef.current = false;
       const payload = JSON.stringify({ type: "text", text });
       const ws = wsRef.current;
       if (ws && ws.readyState === WebSocket.OPEN) {

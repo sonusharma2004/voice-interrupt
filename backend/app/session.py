@@ -105,16 +105,55 @@ STOP_PHRASES = {
     "mira stop",
     "ok stop",
     "okay stop",
+    "im going to go",
+    "i am going to go",
+    "im gonna go",
+    "i am gonna go",
+    "i gotta go",
+    "i have to go",
+    "i need to go",
+    "gotta go",
+    "got to go",
+    "talk later",
+    "see you",
+    "see ya",
+    "im done",
+    "i am done",
 }
 
+LEAVE_SNIPPETS = (
+    "going to go",
+    "gonna go",
+    "gotta go",
+    "got to go",
+    "have to go",
+    "need to go",
+    "gotta run",
+)
 
-def is_stop_command(text: str) -> bool:
-    """Hang up voice only when the whole line is a stop command."""
+# Whisper often clips "stop" to these during barge-in.
+STOP_FRAGMENTS = {"so", "sto", "sop", "stahp", "stap", "stoped", "staap"}
+
+
+def is_stop_command(text: str, *, after_interrupt: bool = False) -> bool:
+    """Hang up voice for stop/goodbye. Also catch Whisper turning 'stop' into 'so'."""
     a = _norm(text)
+    if not a:
+        return False
     if a in STOP_PHRASES:
         return True
     words = a.split()
-    return len(words) <= 4 and words[-1] == "stop" and words[0] in {"stop", "please", "ok", "okay", "mira", "you", "can"}
+    if after_interrupt and a in STOP_FRAGMENTS:
+        return True
+    if any(w in {"stop", "stopped", "stopping"} for w in words):
+        if words[0] in {"dont", "never", "cant", "cannot"}:
+            return False
+        if "sign" in words or (words == ["bus", "stop"] or words == ["stop", "sign"]):
+            return False
+        return len(words) <= 8
+    if len(words) <= 6 and any(p in a for p in LEAVE_SNIPPETS):
+        return True
+    return False
 
 
 class VoiceSession:
@@ -132,6 +171,7 @@ class VoiceSession:
         self.turn_task: asyncio.Task | None = None
         self.history: list[dict[str, Any]] = []
         self.interrupted_last = False
+        self.last_speak_at = 0.0
         self.last_assistant = ""
         self._send_lock = asyncio.Lock()
         self._turn_lock = asyncio.Lock()
@@ -148,7 +188,16 @@ class VoiceSession:
 
     async def _set_state(self, state: State) -> None:
         self.state = state
+        if state == "speaking":
+            self.last_speak_at = time.monotonic()
         await self.send({"type": "state", "state": state, "generation_id": self.generation_id})
+
+    def _wants_hang_up(self, text: str) -> bool:
+        recently_spoke = self.last_speak_at and (time.monotonic() - self.last_speak_at) < 8.0
+        return is_stop_command(
+            text,
+            after_interrupt=self.interrupted_last or bool(recently_spoke),
+        )
 
     def _clear_listen(self) -> None:
         self.listen_buf.clear()
@@ -201,7 +250,9 @@ class VoiceSession:
                 await self.on_text(spoken)
         elif kind == "reset":
             await self.reset_chat()
-        elif kind == "session_start":
+        elif kind in {"hang_up", "voice_off"}:
+            await self.hang_up_voice()
+        elif kind in {"session_start", "voice_on"}:
             self._clear_listen()
             await self._set_state("listening")
 
@@ -232,7 +283,7 @@ class VoiceSession:
                 return
             pcm = bytes(self.listen_buf)
             self._clear_listen()
-            if duration_ms(pcm) < 400:
+            if duration_ms(pcm) < 220:
                 return
             self.generation_id = _new_id()
             self.cancel_event = asyncio.Event()
@@ -254,7 +305,7 @@ class VoiceSession:
                 await self._set_state("listening")
                 return
             await self.send({"type": "transcript_final", "text": text, "generation_id": gen})
-            if is_stop_command(text):
+            if self._wants_hang_up(text):
                 await self.hang_up_voice()
                 return
             await self._generate(text, gen, cancel)
@@ -268,9 +319,7 @@ class VoiceSession:
                 await self._set_state("listening")
 
     async def on_text(self, text: str) -> None:
-        if is_stop_command(text):
-            if self.state in {"transcribing", "thinking", "speaking"}:
-                await self.cancel("stop_command")
+        if is_stop_command(text) or self._wants_hang_up(text):
             await self.hang_up_voice()
             return
         if self.state in {"transcribing", "thinking", "speaking"}:
@@ -308,8 +357,10 @@ class VoiceSession:
                 pass
         self._clear_listen()
         self.interrupted_last = False
-        await self.send({"type": "voice_off", "reason": "stop_command"})
-        await self._set_state("idle")
+        already_idle = self.state == "idle"
+        if not already_idle:
+            await self.send({"type": "voice_off", "reason": "stop_command"})
+            await self._set_state("idle")
         log.info("voice hung up")
 
     async def _generate(self, text: str, gen: str, cancel: asyncio.Event) -> None:
