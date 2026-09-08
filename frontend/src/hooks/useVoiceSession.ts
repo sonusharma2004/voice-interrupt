@@ -44,6 +44,7 @@ export function useVoiceSession() {
   const lastRmsRef = useRef<number>(0);
   const openMicRef = useRef(true);
   const prerollRef = useRef<Uint8Array[]>([]);
+  const disableMicRef = useRef<() => Promise<void>>(async () => undefined);
   const handleRef = useRef<(msg: Record<string, unknown>) => void>(() => undefined);
 
   const pushEvent = useCallback((kind: string, detail: string) => {
@@ -203,6 +204,14 @@ export function useVoiceSession() {
         return;
       }
 
+      if (type === "voice_off") {
+        flushPlaybackNow();
+        void disableMicRef.current();
+        setSessionState("idle");
+        pushEvent("voice", "hung up");
+        return;
+      }
+
       if (type === "error") {
         setError(String(msg.message || "Server error"));
         pushEvent("error", String(msg.message));
@@ -295,7 +304,10 @@ export function useVoiceSession() {
     engineRef.current = null;
     setMicOn(false);
     setPipeline((p) => ({ ...p, micLive: false, rms: 0 }));
-  }, []);
+    setSessionState("idle");
+  }, [setSessionState]);
+
+  disableMicRef.current = disableMic;
 
   const sendText = useCallback(
     (raw: string) => {

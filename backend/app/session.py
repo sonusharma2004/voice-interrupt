@@ -68,6 +68,55 @@ def is_echo(text: str, last_assistant: str) -> bool:
     return False
 
 
+STOP_PHRASES = {
+    "stop",
+    "stop it",
+    "stop now",
+    "stop talking",
+    "stop listening",
+    "stop speaking",
+    "please stop",
+    "please stop talking",
+    "please stop listening",
+    "thats enough",
+    "that is enough",
+    "never mind",
+    "nevermind",
+    "cancel",
+    "quiet",
+    "be quiet",
+    "shut up",
+    "hang up",
+    "goodbye",
+    "good bye",
+    "bye",
+    "bye bye",
+    "were done",
+    "we are done",
+    "thats it",
+    "enough",
+    "end",
+    "end voice",
+    "mute",
+    "you stop",
+    "you stop now",
+    "can you stop",
+    "could you stop",
+    "mira stop",
+    "ok stop",
+    "okay stop",
+}
+
+
+def is_stop_command(text: str) -> bool:
+    """Hang up voice only when the whole line is a stop command."""
+    a = _norm(text)
+    if a in STOP_PHRASES:
+        return True
+    words = a.split()
+    return len(words) <= 4 and words[-1] == "stop" and words[0] in {"stop", "please", "ok", "okay", "mira", "you", "can"}
+
+
 class VoiceSession:
     def __init__(self, ws: WebSocket) -> None:
         self.ws = ws
@@ -205,6 +254,9 @@ class VoiceSession:
                 await self._set_state("listening")
                 return
             await self.send({"type": "transcript_final", "text": text, "generation_id": gen})
+            if is_stop_command(text):
+                await self.hang_up_voice()
+                return
             await self._generate(text, gen, cancel)
         except asyncio.CancelledError:
             raise
@@ -216,6 +268,11 @@ class VoiceSession:
                 await self._set_state("listening")
 
     async def on_text(self, text: str) -> None:
+        if is_stop_command(text):
+            if self.state in {"transcribing", "thinking", "speaking"}:
+                await self.cancel("stop_command")
+            await self.hang_up_voice()
+            return
         if self.state in {"transcribing", "thinking", "speaking"}:
             await self.cancel("typed")
         self.generation_id = _new_id()
@@ -236,6 +293,24 @@ class VoiceSession:
         self.interrupted_last = False
         self._clear_listen()
         await self._set_state("listening")
+
+    async def hang_up_voice(self) -> None:
+        """GPT-style: stop talking and stop listening. No model reply."""
+        self.cancel_event.set()
+        self.playback_done.set()
+        task = self.turn_task
+        current = asyncio.current_task()
+        if task and not task.done() and task is not current:
+            task.cancel()
+            try:
+                await asyncio.wait_for(asyncio.shield(self._await_cancelled(task)), timeout=0.5)
+            except Exception:
+                pass
+        self._clear_listen()
+        self.interrupted_last = False
+        await self.send({"type": "voice_off", "reason": "stop_command"})
+        await self._set_state("idle")
+        log.info("voice hung up")
 
     async def _generate(self, text: str, gen: str, cancel: asyncio.Event) -> None:
         try:

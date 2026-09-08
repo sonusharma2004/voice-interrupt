@@ -29,7 +29,7 @@ export function App() {
         <button type="button" className="new-chat" onClick={() => session.newChat()}>
           <span>+</span> New chat
         </button>
-        <p className="side-note">Voice and text. Speak over Mira to interrupt.</p>
+        <p className="side-note">Tap the mic to talk. Say “stop” to hang up voice, like ChatGPT.</p>
       </aside>
 
       <div className="main">
