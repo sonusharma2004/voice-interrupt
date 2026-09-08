@@ -44,10 +44,10 @@ Open [http://localhost:5173](http://localhost:5173). Tap the **mic**, allow the 
 
 ## Demo script (~90 seconds)
 
-1. Tap the mic. “What’s on tonight at PVR Phoenix?”
-2. Talk over it: “Two IMAX seats for Dune at 7.” Watch the sidebar ticket appear.
-3. “Book me a morning flight from Bengaluru to Goa tomorrow.”
-4. Cut in: “Make it the evening IndiGo instead.”
+1. Tap the mic. “What’s on in Indore tonight?”
+2. Talk over it: “Two for Hanuman Ansh at Phoenix, 7pm.” Watch fill and the ticket card.
+3. “Any IMAX for Spider-Man at TI?”
+4. “Book a morning flight from Indore to Goa.”
 5. Say **stop**. Mic goes gray.
 
 This catalog is **not** the real BookMyShow or MakeMyTrip sites. Cut cannot log in, take payment, or issue a live ticket. A judge can still see search → hold → confirmation code, and barge-in changing the booking.

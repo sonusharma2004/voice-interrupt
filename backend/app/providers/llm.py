@@ -17,26 +17,34 @@ SYSTEM = """You are Cut, a voice assistant in the browser — like talking to Ch
 Your name is Cut. If they say hi, hey, or hello Cut, greet them and offer to help.
 
 You can also run a demo box office and travel desk:
-- Movies: BookMyShow-style showtimes from the local catalog (Dune, Deadpool, Stree 2).
-- Trips: MakeMyTrip-style flights, Goa hotels, and one weekend package.
+- Movies default to Indore: Phoenix Citadel, C21, Treasure Island (TI), Nexus Central, Velocity, Malhar.
+- Now showing (Sep 2026): Hanuman Ansh, Toxic, Mirzapur: The Movie, Spider-Man: Brand New Day. Speak fill as available, fast filling, or almost full.
+- Coming soon: Avengers: Doomsday on 18 Dec 2026 — reminder hold only, not a real ticket.
+- Other cities: Mumbai, Delhi, Goa, Bengaluru.
+- Trips: flights and hotels for Indore, Mumbai, Delhi, Goa.
 This is NOT the real BookMyShow or MakeMyTrip websites. No login, no payment, no real ticket.
 If they ask to pay or book on the real site, say the hold is a demo confirmation only.
 
-For movies or trips: call the tools. Search first, then book. Read back title, place, time, people, price in rupees, and the CUT- code.
+For movies or trips: call the tools. If they do not name a city, search Indore first. Search then book.
 If they talk over you with a new time or movie, drop the old plan and book the new one.
 
 You still answer any other topic. You are not a café.
 
 How to speak:
 - Plain spoken English. No markdown, bullets, URLs, emoji, or stage directions.
-- A few tight sentences unless they ask for more.
+- Times are always 12-hour, like 7:10 PM or 10:30 AM. Never say 19:10 or 18:50.
+- Movie tickets and trip bookings are a ticket card, never one run-on sentence. Each field on its own line: title, place, date and 12-hour time, seats or travelers, price in rupees, fill if it is a movie, then the CUT- code.
+- When a tool returns ticket_text, say that block exactly, including the line breaks. Do not squash it.
+- When listing shows or flights, put each option on its own lines with a 12-hour time. Use the time_12 field from tools.
+- A few tight sentences unless they asked for a ticket or a list.
 - Remember the conversation.
 """
 
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 BOOKISH = re.compile(
-    r"\b(movie|film|ticket|show|pvr|inox|imax|dune|deadpool|stree|flight|fly|hotel|goa|"
-    r"trip|bookmyshow|makemytrip|bengaluru|bangalore|mumbai|vistara|indigo)\b",
+    r"\b(movie|film|ticket|show|pvr|inox|imax|4dx|phoenix|c21|hanuman|ansh|toxic|mirzapur|"
+    r"spider|spiderman|doomsday|flight|fly|hotel|goa|indore|mumbai|delhi|"
+    r"trip|bookmyshow|makemytrip|bengaluru|bangalore|treasure)\b",
     re.I,
 )
 
@@ -89,6 +97,12 @@ async def stream_spoken_reply(
         await _run_tools(client, settings.groq_llm_model, messages, execute_tool, cancel)
 
     if cancel.is_set():
+        return
+
+    card = _booking_card_from_messages(messages)
+    if card:
+        await on_token(card)
+        yield card
         return
 
     stream = await client.chat.completions.create(
@@ -164,6 +178,27 @@ async def _run_tools(
                 }
             )
     return used
+
+
+def _booking_card_from_messages(messages: list[dict[str, Any]]) -> str | None:
+    for msg in reversed(messages):
+        if msg.get("role") == "user":
+            return None
+        if msg.get("role") != "tool":
+            continue
+        try:
+            data = json.loads(msg.get("content") or "")
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(data, dict):
+            continue
+        text = data.get("ticket_text")
+        if text:
+            return str(text)
+        cards = [str(x) for x in list(data.get("ticket_texts") or []) + list(data.get("trip_texts") or []) if x]
+        if cards:
+            return "\n\n".join(cards)
+    return None
 
 
 def _flush_sentences(buf: str) -> tuple[list[str], str]:

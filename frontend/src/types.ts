@@ -18,12 +18,15 @@ export type MovieHold = {
   id: string;
   title: string;
   theater: string;
+  city?: string;
   time: string;
   date: string;
   seats: number;
   screen: string;
   price: number;
   code: string;
+  fill?: string;
+  status?: string;
   confirmed: boolean;
 };
 

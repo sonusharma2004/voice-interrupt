@@ -25,16 +25,16 @@ export function Transcript({ lines }: { lines: Line[] }) {
     <div className="thread" ref={scroller}>
       <div className="thread-inner">
         {lines.map((line) =>
-          line.role === "user" ? (
+            line.role === "user" ? (
             <div key={line.id} className="row user">
               <div className="bubble">{line.text}</div>
             </div>
-          ) : (
+          ) : line.interrupted && !line.text.trim() ? null : (
             <div key={line.id} className={`row assistant ${line.interrupted ? "cut" : ""} ${line.partial ? "partial" : ""}`}>
               <div className="avatar cut">C</div>
               <div className="prose">
                 <p>{line.text || (line.partial ? "…" : "")}</p>
-                {line.interrupted && <span className="stopped">Stopped</span>}
+                {line.interrupted && !!line.text.trim() && <span className="stopped">Stopped</span>}
               </div>
             </div>
           )

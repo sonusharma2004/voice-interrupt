@@ -83,7 +83,7 @@ export function useVoiceSession() {
     (reason: string) => {
       const current = stateRef.current;
       if (hangingUpRef.current || !micWantedRef.current) return;
-      if (current !== "speaking" && current !== "thinking") return;
+      if (current !== "speaking") return;
       if (current === "speaking") {
         const since = Date.now() - speakingSinceRef.current;
         if (since < ECHO_GUARD_MS) return;
@@ -150,9 +150,7 @@ export function useVoiceSession() {
         }
         if (next === "thinking") {
           assistantBufRef.current = "";
-          assistantIdRef.current = uid();
-          const id = assistantIdRef.current;
-          setLines((prev) => [...prev, { id, role: "assistant", text: "", partial: true }]);
+          assistantIdRef.current = null;
         }
         setSessionState(next);
         return;
@@ -177,11 +175,16 @@ export function useVoiceSession() {
       if (type === "llm_token") {
         const delta = String(msg.text || "");
         assistantBufRef.current += delta;
+        if (!assistantIdRef.current) {
+          assistantIdRef.current = uid();
+          const id = assistantIdRef.current;
+          const text = assistantBufRef.current;
+          setLines((prev) => [...prev, { id, role: "assistant", text, partial: true }]);
+          return;
+        }
         const id = assistantIdRef.current;
         const text = assistantBufRef.current;
-        if (id) {
-          setLines((prev) => prev.map((l) => (l.id === id ? { ...l, text } : l)));
-        }
+        setLines((prev) => prev.map((l) => (l.id === id ? { ...l, text } : l)));
         return;
       }
 

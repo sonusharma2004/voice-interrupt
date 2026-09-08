@@ -1,26 +1,24 @@
 # Demo trips (MakeMyTrip-style)
 
-This is Cut's local travel desk. It is not MakeMyTrip.com. No real tickets, hotels, or charges.
+Local catalog, not MakeMyTrip.com. Cities: Indore, Mumbai, Delhi, Goa, Bengaluru.
 
-## Flights Bengaluru → Goa
+## Flights from Indore
 
-- IndiGo 6E 214, 07:10–08:25, ₹6,400
-- Air India AI 657, 14:20–15:40, ₹7,200
-- IndiGo 6E 901, 19:45–21:00, ₹8,100
+- Indore → Mumbai: IndiGo 6E 6182 6:35 AM, Air India AI 440 3:20 PM
+- Indore → Delhi: IndiGo 6E 2031 7:15 AM, Vistara UK 651 6:40 PM
+- Indore → Goa: IndiGo 6E 745 10:10 AM
 
-## Flights Delhi → Mumbai
+## Other flights
 
-- Vistara UK 995, 08:00–10:15, ₹9,100
+Mumbai → Goa, Delhi → Goa, Bengaluru → Goa (morning and evening).
 
-## Hotels in Goa
+## Hotels
 
-- Taj Holiday Village, Candolim, ₹9,200 a night, breakfast in
-- Bloom Hotel Calangute, ₹4,200 a night, room only
+- Indore: Sayaji, Radisson Blu
+- Goa: Taj Holiday Village Candolim, Bloom Hotel Calangute
 
 ## Package
 
-Goa weekend, 2 nights: flights from Bengaluru plus Bloom Hotel, ₹18,900 per person.
+Goa weekend from Indore, 2 nights, flights plus Bloom Hotel.
 
-## How to book
-
-Search flights, hotels, or packages, then hold with a CUT-T code. Repeat origin, destination, time, and traveler count before confirming. If they cut in with a new time, book that instead.
+Search first, then hold with a CUT-T code. Read back origin, 12-hour time, and traveler count on separate lines, like a ticket — never one run-on sentence.

@@ -1,24 +1,29 @@
 # Demo box office (BookMyShow-style)
 
-This is Cut's local movie catalog. It is not BookMyShow.com. No login, no payment, no real seats.
+Local catalog, not BookMyShow.com. Listings are built to feel live: fill (available / fast filling / almost full), mixed showtimes, Indore first.
 
-## Bengaluru
+## Now showing — 8 Sep 2026
 
-Dune: Part Two at PVR Phoenix Bengaluru.
-- 16:00 2D, ₹280
-- 19:00 IMAX, ₹450
-- 21:30 2D, ₹280
+- Hanuman Ansh (Hindi, U) — still packing houses
+- Toxic (Hindi, UA16+) — Yash, quieter halls
+- Mirzapur: The Movie (Hindi, A) — new
+- Spider-Man: Brand New Day (English, UA13+) — 2D, IMAX, 4DX
 
-Deadpool & Wolverine at INOX Garuda Mall Bengaluru.
-- 18:00 2D, ₹320
-- 21:15 2D, ₹320
+## Coming soon
 
-## Mumbai
+Avengers: Doomsday — 18 Dec 2026. Reminder hold only. No seats yet.
 
-Stree 2 at PVR Forum Mumbai.
-- 17:15 2D, ₹250
-- 20:30 2D, ₹250
+## Indore cinemas
+
+- INOX Phoenix Citadel Mall (IMAX, 4DX)
+- INOX C21 Mall
+- PVR Treasure Island Mall (TI)
+- INOX Nexus Indore Central
+- Miraj Cinemas Velocity III
+- Rajhans Cinemas Malhar Mega Mall
+
+Also Mumbai, Delhi, Goa, Bengaluru.
 
 ## How to book
 
-Ask for a title and city. Cut searches shows, then holds seats and gives a CUT-M code. Change of time is allowed if they interrupt: cancel the old idea and book the new show. Max 6 seats per hold.
+Default city is Indore if they do not say another. Search, then hold. Speak cinema, 12-hour time (7:10 PM, never 19:10), fill, and the CUT-M code. Put the ticket on separate lines, not one sentence. If they interrupt with C21 or 7pm, switch to that show.

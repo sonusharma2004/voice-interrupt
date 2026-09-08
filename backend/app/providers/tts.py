@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 
 import edge_tts
 
@@ -14,7 +15,9 @@ TTS_RATE = 24_000
 
 async def synthesize_mp3(text: str, cancel: asyncio.Event) -> bytes:
     """Microsoft neural TTS (free, no key). One complete mp3 per sentence."""
-    spoken = text.strip()
+    spoken = re.sub(r"\n+", ". ", text.strip())
+    spoken = re.sub(r"\.\s*\.", ".", spoken)
+    spoken = re.sub(r"\s+", " ", spoken).strip()
     if not spoken:
         return b""
     settings = get_settings()

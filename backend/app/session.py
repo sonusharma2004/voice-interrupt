@@ -428,32 +428,43 @@ class VoiceSession:
                     await self._set_state("speaking")
                     await self._speak(GREET_LINE, gen, cancel)
             else:
-                async def execute_tool(name: str, arguments: str) -> str:
-                    if cancel.is_set() or gen != self.generation_id:
-                        return json.dumps({"error": "cancelled"})
-                    result = await self.desk.execute(name, arguments)
-                    await self.send({"type": "tool", "name": name, "generation_id": gen})
-                    return result
-
-                async for sentence in llm_provider.stream_spoken_reply(
-                    history=self.history,
-                    user_text=to_llm_utterance(text),
-                    interrupted=self.interrupted_last,
-                    on_token=on_token,
-                    cancel=cancel,
-                    execute_tool=execute_tool,
-                ):
-                    if cancel.is_set() or gen != self.generation_id:
-                        return
-                    spoken_parts.append(sentence)
-                    if self.state != "speaking":
+                direct = await self.desk.try_book_from_utterance(text)
+                if direct and direct.get("spoken"):
+                    line = direct["spoken"]
+                    await on_token(line)
+                    spoken_parts.append(line)
+                    if not (cancel.is_set() or gen != self.generation_id):
                         await self._set_state("speaking")
-                    await self._speak(sentence, gen, cancel)
+                        await self._speak(line, gen, cancel)
+                else:
+                    async def execute_tool(name: str, arguments: str) -> str:
+                        if cancel.is_set() or gen != self.generation_id:
+                            return json.dumps({"error": "cancelled"})
+                        result = await self.desk.execute(name, arguments)
+                        await self.send({"type": "tool", "name": name, "generation_id": gen})
+                        return result
+
+                    async for sentence in llm_provider.stream_spoken_reply(
+                        history=self.history,
+                        user_text=to_llm_utterance(text),
+                        interrupted=self.interrupted_last,
+                        on_token=on_token,
+                        cancel=cancel,
+                        execute_tool=execute_tool,
+                    ):
+                        if cancel.is_set() or gen != self.generation_id:
+                            return
+                        spoken_parts.append(sentence)
+                        if self.state != "speaking":
+                            await self._set_state("speaking")
+                        await self._speak(sentence, gen, cancel)
 
             if cancel.is_set() or gen != self.generation_id:
                 return
 
-            full = " ".join(spoken_parts).strip()
+            full = "\n".join(p.strip() for p in spoken_parts if p.strip()) if any(
+                "\n" in p for p in spoken_parts
+            ) else " ".join(spoken_parts).strip()
             if full:
                 self.history.append({"role": "user", "content": text})
                 self.history.append({"role": "assistant", "content": full})
