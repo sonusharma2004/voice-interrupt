@@ -10,7 +10,9 @@ Local catalog, not MakeMyTrip.com. Cities: Indore, Mumbai, Delhi, Goa, Bengaluru
 
 ## Other flights
 
-Mumbai → Goa, Delhi → Goa, Bengaluru → Goa (morning and evening).
+- Bengaluru → Indore: IndiGo 6E 2281 7:15 AM, Vistara UK 877 6:55 PM
+- Indore → Bengaluru: IndiGo 6E 2282 6:20 AM, Air India AI 616 7:10 PM
+- Mumbai → Goa, Delhi → Goa, Bengaluru → Goa (morning and evening).
 
 ## Hotels
 
@@ -21,4 +23,4 @@ Mumbai → Goa, Delhi → Goa, Bengaluru → Goa (morning and evening).
 
 Goa weekend from Indore, 2 nights, flights plus Bloom Hotel.
 
-Search first, then hold with a CUT-T code. Read back origin, 12-hour time, and traveler count on separate lines, like a ticket — never one run-on sentence.
+Search first, then hold with a CUT-T code. Offer two or three options in normal sentences with 12-hour times. Ask which slot and how many people before holding. Confirm in prose, not a pasted form.

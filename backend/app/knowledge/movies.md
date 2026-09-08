@@ -26,4 +26,4 @@ Also Mumbai, Delhi, Goa, Bengaluru.
 
 ## How to book
 
-Default city is Indore if they do not say another. Search, then hold. Speak cinema, 12-hour time (7:10 PM, never 19:10), fill, and the CUT-M code. Put the ticket on separate lines, not one sentence. If they interrupt with C21 or 7pm, switch to that show.
+Default city is Indore if they do not say another. Search, offer two or three showtimes in 12-hour time, ask how many seats, then hold only after they pick. Never dump a ticket form. Confirm in a couple of sentences with the CUT-M code.

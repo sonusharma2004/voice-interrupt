@@ -15,8 +15,9 @@ class Settings(BaseSettings):
 
     openai_api_key: str = ""
     groq_api_key: str = ""
-    groq_llm_model: str = "openai/gpt-oss-20b"
-    groq_stt_model: str = "whisper-large-v3-turbo"
+    groq_llm_model: str = "qwen/qwen3.6-27b"
+    groq_llm_fallback: str = "openai/gpt-oss-20b"
+    groq_stt_model: str = "whisper-large-v3"
     tts_provider: str = "edge"
     edge_tts_voice: str = "en-US-AvaNeural"
     openai_llm_model: str = "gpt-4o-mini"

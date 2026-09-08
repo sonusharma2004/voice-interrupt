@@ -35,6 +35,10 @@ export function useVoiceSession() {
 
   const engineRef = useRef<VoiceEngine | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const socketOnRef = useRef(false);
+  const reconnectRef = useRef<number | null>(null);
+  const unmountRef = useRef(false);
+  const wsFailsRef = useRef(0);
   const stateRef = useRef<SessionState>("idle");
   const liveGenRef = useRef<string>("");
   const ignoreGenRef = useRef<Set<string>>(new Set());
@@ -261,6 +265,7 @@ export function useVoiceSession() {
   handleRef.current = handleMessage;
 
   const openSocket = useCallback(() => {
+    if (unmountRef.current) return;
     const current = wsRef.current;
     if (current && (current.readyState === WebSocket.OPEN || current.readyState === WebSocket.CONNECTING)) {
       return;
@@ -269,8 +274,11 @@ export function useVoiceSession() {
     const ws = new WebSocket(`${proto}://${location.host}/ws`);
     wsRef.current = ws;
     ws.onopen = () => {
+      wsFailsRef.current = 0;
       ws.send(JSON.stringify({ type: "session_start" }));
+      socketOnRef.current = true;
       setSocketOn(true);
+      setError(null);
       pushEvent("socket", "connected");
     };
     ws.onmessage = (ev) => {
@@ -280,20 +288,34 @@ export function useVoiceSession() {
         /* ignore */
       }
     };
-    ws.onerror = () => setError("Can't reach the server. Is FastAPI running on :8000?");
     ws.onclose = () => {
+      socketOnRef.current = false;
       setSocketOn(false);
       pushEvent("socket", "closed");
+      if (wsRef.current === ws) wsRef.current = null;
+      if (unmountRef.current) return;
+      wsFailsRef.current += 1;
+      if (wsFailsRef.current >= 2) {
+        setError("Can't reach the server on :8000. Refresh after FastAPI finishes reloading.");
+      }
+      if (reconnectRef.current != null) window.clearTimeout(reconnectRef.current);
+      reconnectRef.current = window.setTimeout(() => {
+        reconnectRef.current = null;
+        openSocket();
+      }, 800);
     };
   }, [pushEvent]);
 
   useEffect(() => {
+    unmountRef.current = false;
     openSocket();
     void fetch("/api/health")
       .then((r) => r.json())
       .then((h) => setKeysOk(Boolean(h.ok)))
       .catch(() => setKeysOk(false));
     return () => {
+      unmountRef.current = true;
+      if (reconnectRef.current != null) window.clearTimeout(reconnectRef.current);
       wsRef.current?.close();
       wsRef.current = null;
       void engineRef.current?.stop();

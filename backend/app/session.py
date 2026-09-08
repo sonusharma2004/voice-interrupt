@@ -16,6 +16,7 @@ from app.audio.endpointing import Endpointing
 from app.providers import llm as llm_provider
 from app.providers import stt as stt_provider
 from app.providers import tts as tts_provider
+from app.providers.stt import repair_transcript
 from app.tools.desk import DeskTools
 
 log = logging.getLogger("harbor.session")
@@ -82,8 +83,40 @@ def to_llm_utterance(text: str) -> str:
     return text
 
 
+_ECHO_STOP = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "at",
+    "can",
+    "could",
+    "for",
+    "from",
+    "have",
+    "how",
+    "if",
+    "in",
+    "is",
+    "it",
+    "like",
+    "many",
+    "of",
+    "on",
+    "or",
+    "please",
+    "so",
+    "that",
+    "the",
+    "this",
+    "to",
+    "would",
+    "you",
+}
+
+
 def is_echo(text: str, last_assistant: str) -> bool:
-    """Drop transcripts that are Cut hearing itself."""
+    """Drop transcripts that are Cut hearing itself, not the user's next turn."""
     a = _norm(text)
     if not a:
         return True
@@ -91,11 +124,26 @@ def is_echo(text: str, last_assistant: str) -> bool:
     if len(words) < 2:
         return False
     b = _norm(last_assistant)
-    if b and (a in b or b in a):
+    if not b:
+        return False
+
+    # Follow-ups share words like "book" / "one" / "Indore" with the last reply.
+    # Keep them if the user added anything Cut did not just say.
+    content = [w for w in words if w not in _ECHO_STOP and len(w) > 2]
+    extra = [w for w in content if w not in b.split()]
+    if extra:
+        return False
+    if re.search(r"\b([1-6]|one|two|three|four|five|six)\b", a) and re.search(
+        r"\b(seats?|people|person|tickets?|book)\b", a
+    ):
+        return False
+
+    # Long stretch copied from the last spoken line = speaker echo.
+    if len(a) >= 24 and a in b:
         return True
-    aw, bw = set(words), set(b.split()) if b else set()
-    if bw and len(aw & bw) / len(aw) >= 0.55:
+    if len(content) >= 4 and not extra:
         return True
+
     assistant_tics = (
         "let me know",
         "anything else",
@@ -107,7 +155,7 @@ def is_echo(text: str, last_assistant: str) -> bool:
         "have a great",
         "what else",
     )
-    if any(p in a for p in assistant_tics) and (not b or len(aw & bw) >= 2):
+    if any(p in a for p in assistant_tics):
         return True
     return False
 
@@ -348,6 +396,7 @@ class VoiceSession:
             text = await stt_provider.transcribe(pcm)
             if cancel.is_set() or gen != self.generation_id:
                 return
+            text = repair_transcript(text)
             if not text or is_echo(text, self.last_assistant):
                 log.info("drop transcript echo/empty: %s", text)
                 await self._set_state("listening")
@@ -414,6 +463,7 @@ class VoiceSession:
         log.info("voice hung up")
 
     async def _generate(self, text: str, gen: str, cancel: asyncio.Event) -> None:
+        text = repair_transcript(text)
         try:
             await self._set_state("thinking")
             spoken_parts: list[str] = []
@@ -430,12 +480,10 @@ class VoiceSession:
             else:
                 direct = await self.desk.try_book_from_utterance(text)
                 if direct and direct.get("spoken"):
-                    line = direct["spoken"]
-                    await on_token(line)
-                    spoken_parts.append(line)
                     if not (cancel.is_set() or gen != self.generation_id):
-                        await self._set_state("speaking")
-                        await self._speak(line, gen, cancel)
+                        await self._stream_and_speak(
+                            direct["spoken"], gen, cancel, on_token, spoken_parts
+                        )
                 else:
                     async def execute_tool(name: str, arguments: str) -> str:
                         if cancel.is_set() or gen != self.generation_id:
@@ -491,10 +539,48 @@ class VoiceSession:
             raise
         except Exception as exc:
             log.exception("generate failed")
-            await self.send({"type": "error", "message": str(exc), "generation_id": gen})
+            if (
+                (llm_provider.is_rate_limit(exc) or llm_provider.is_model_missing(exc))
+                and not cancel.is_set()
+                and gen == self.generation_id
+            ):
+                line = llm_provider.RATE_LIMIT_LINE
+                await on_token(line)
+                spoken_parts.append(line)
+                await self._set_state("speaking")
+                await self._speak(line, gen, cancel)
+                await self.send({"type": "llm_done", "generation_id": gen})
+            else:
+                await self.send({"type": "error", "message": "Something went wrong on my side.", "generation_id": gen})
             if self.state != "interrupted":
                 self._clear_listen()
                 await self._set_state("listening")
+
+    async def _stream_and_speak(
+        self,
+        text: str,
+        gen: str,
+        cancel: asyncio.Event,
+        on_token,
+        spoken_parts: list[str],
+    ) -> None:
+        chunks = [p.strip() for p in re.split(r"(?<=[.!?])\s+", text.strip()) if p.strip()]
+        if not chunks:
+            return
+        for i, chunk in enumerate(chunks):
+            if cancel.is_set() or gen != self.generation_id:
+                return
+            if i:
+                await on_token(" ")
+            for token in re.findall(r"\S+\s*", chunk):
+                if cancel.is_set() or gen != self.generation_id:
+                    return
+                await on_token(token)
+                await asyncio.sleep(0.016)
+            spoken_parts.append(chunk)
+            if self.state != "speaking":
+                await self._set_state("speaking")
+            await self._speak(chunk, gen, cancel)
 
     async def _speak(self, sentence: str, gen: str, cancel: asyncio.Event) -> None:
         clean = sentence.strip()
