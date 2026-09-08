@@ -229,12 +229,13 @@ textarea {
   margin: 0 auto;
   display: grid;
   grid-template-columns: 1fr auto auto;
-  align-items: end;
+  align-items: center;
   gap: 6px;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 26px;
-  padding: 10px 10px 10px 18px;
+  border-radius: 28px;
+  padding: 8px 8px 8px 20px;
+  min-height: 56px;
 }
 
 .composer textarea {
@@ -246,8 +247,10 @@ textarea {
   color: var(--text);
   font-size: 16px;
   line-height: 1.5;
+  min-height: 24px;
   max-height: 160px;
-  padding: 8px 0;
+  padding: 6px 0;
+  overflow-y: hidden;
 }
 
 .composer textarea::placeholder {
@@ -395,11 +398,30 @@ textarea {
   font-size: 13px;
 }
 
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.new-inline {
+  display: none;
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
 @media (max-width: 800px) {
   .shell {
     grid-template-columns: 1fr;
   }
   .sidebar {
     display: none;
+  }
+  .new-inline {
+    display: inline-flex;
   }
 }

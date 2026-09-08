@@ -171,6 +171,13 @@ export function useVoiceSession() {
       if (type === "tts_mp3") {
         if (gen && ignoreGenRef.current.has(gen)) return;
         if (!engineRef.current) engineRef.current = new VoiceEngine();
+        if (!engineRef.current.onPlaybackDone) {
+          engineRef.current.onPlaybackDone = () => {
+            window.setTimeout(() => {
+              wsRef.current?.send(JSON.stringify({ type: "playback_done" }));
+            }, 350);
+          };
+        }
         const b64 = String(msg.data || "");
         const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
         engineRef.current.enqueueMp3(bin.buffer);
@@ -301,7 +308,19 @@ export function useVoiceSession() {
         strikeAssistant();
       }
       setLines((prev) => [...prev, { id: uid(), role: "user", text }]);
-      wsRef.current?.send(JSON.stringify({ type: "text", text }));
+      const payload = JSON.stringify({ type: "text", text });
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(payload);
+        return;
+      }
+      const timer = window.setInterval(() => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          window.clearInterval(timer);
+          wsRef.current.send(payload);
+        }
+      }, 40);
+      window.setTimeout(() => window.clearInterval(timer), 3000);
     },
     [flushPlaybackNow, openSocket, strikeAssistant]
   );

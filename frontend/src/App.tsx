@@ -13,7 +13,7 @@ export function App() {
     const el = area.current;
     if (!el) return;
     el.style.height = "24px";
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, 24), 160)}px`;
   }, [draft]);
 
   function submit() {
@@ -22,8 +22,6 @@ export function App() {
     session.sendText(text);
     setDraft("");
   }
-
-  const busy = session.state === "thinking" || session.state === "transcribing" || session.state === "speaking";
 
   return (
     <div className="shell">
@@ -36,7 +34,12 @@ export function App() {
 
       <div className="main">
         <header className="topbar">
-          <strong>Mira</strong>
+          <div className="title-row">
+            <button type="button" className="new-inline" onClick={() => session.newChat()}>
+              New chat
+            </button>
+            <strong>Mira</strong>
+          </div>
           <div className="top-actions">
             {session.micOn && <span className={`live-tag is-${session.state}`}>{label(session.state)}</span>}
             <button type="button" className="text-btn" onClick={() => setDetails(true)}>
@@ -75,7 +78,7 @@ export function App() {
               type="button"
               className="icon-btn send"
               title="Send"
-              disabled={!draft.trim() || (busy && !draft.trim())}
+              disabled={!draft.trim()}
               onClick={submit}
             >
               <SendIcon />
