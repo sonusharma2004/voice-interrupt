@@ -9,6 +9,7 @@ Say **stop** (or tap the mic) and voice mode hangs up: it goes quiet, generation
 ## What is in here
 
 - ChatGPT-style UI: sidebar, transcript, text box, mic, send
+- Demo **box office** (BookMyShow-style) and **trip desk** (MakeMyTrip-style) with a local catalog, tools, and a ticket card
 - FastAPI WebSocket session with a generation id on every turn
 - Client AudioWorklet capture + a flushable playback queue
 - Barge-in: talking over it flushes speakers and starts a new turn
@@ -43,11 +44,19 @@ Open [http://localhost:5173](http://localhost:5173). Tap the **mic**, allow the 
 
 ## Demo script (~90 seconds)
 
-1. Tap the mic. “Explain gravity like I’m five.”
-2. Talk over it: “Actually, what’s 17 times 24?”
-3. Watch Details: playback flush, then TTS/LLM abort, struck-through text.
-4. Trail off: “And also can you… wait…” — it should wait, then pick it up.
-5. Say **stop**. Speech dies, the mic button goes gray, it does not keep chatting. Tap the mic to talk again.
+1. Tap the mic. “What’s on tonight at PVR Phoenix?”
+2. Talk over it: “Two IMAX seats for Dune at 7.” Watch the sidebar ticket appear.
+3. “Book me a morning flight from Bengaluru to Goa tomorrow.”
+4. Cut in: “Make it the evening IndiGo instead.”
+5. Say **stop**. Mic goes gray.
+
+This catalog is **not** the real BookMyShow or MakeMyTrip sites. Cut cannot log in, take payment, or issue a live ticket. A judge can still see search → hold → confirmation code, and barge-in changing the booking.
+
+## What we cannot do on a real site
+
+BookMyShow and MakeMyTrip do not give a public booking API. A real checkout needs their partner access, your account, and payment. Scraping those sites to place an order is not part of this demo.
+
+What we **can** ship for a live room: a sandbox that behaves like those products (showtimes, flights, hotels, confirmation codes) plus interrupt that actually cancels the turn.
 
 ## Stack
 
@@ -56,7 +65,7 @@ Open [http://localhost:5173](http://localhost:5173). Tap the **mic**, allow the 
 | Backend | FastAPI + WebSockets + asyncio cancellation |
 | Frontend | Vite, React, AudioWorklets |
 | STT | Groq `whisper-large-v3-turbo` |
-| LLM | Groq `openai/gpt-oss-20b` (no tools; general chat) |
+| LLM | Groq `openai/gpt-oss-20b` + booking tools |
 | TTS | Microsoft edge-tts (`en-US-AvaNeural`, mp3 per sentence) |
 
 OpenAI TTS is still wired as an optional fallback if you set `TTS_PROVIDER=openai` and `OPENAI_API_KEY`.

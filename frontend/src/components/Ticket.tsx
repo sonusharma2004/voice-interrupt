@@ -1,38 +1,40 @@
-import type { Ticket } from "../types";
+import type { Desk } from "../types";
 
-export function TicketCard({ ticket }: { ticket: Ticket }) {
+export function DeskCard({ desk }: { desk: Desk }) {
+  const empty = desk.movies.length === 0 && desk.trips.length === 0;
   return (
-    <aside className="ticket">
-      <div className="ticket-head">
-        <span>Harbor & Rye</span>
-        <small>418 Willow · guest ticket</small>
-      </div>
-      <ul>
-        {ticket.lines.length === 0 && <li className="ghost">No items yet</li>}
-        {ticket.lines.map((line, i) => (
-          <li key={`${line.item}-${i}`}>
-            <b>
-              {line.qty}× {line.item}
-            </b>
-            {line.mods && <small>{line.mods}</small>}
-          </li>
-        ))}
-      </ul>
-      <div className={`seal ${ticket.confirmed ? "on" : ""}`}>
-        {ticket.confirmed ? "sent to the bar" : "open ticket"}
-      </div>
-      {ticket.bookings.length > 0 && (
-        <div className="holds">
-          <span>Table holds</span>
-          {ticket.bookings.map((b, i) => (
-            <p key={i}>
-              {b.party} · {b.date} {b.time}
-              <br />
-              <em>{b.name}</em>
-            </p>
-          ))}
-        </div>
-      )}
-    </aside>
+    <div className="desk">
+      <p className="desk-kicker">Demo holds</p>
+      <p className="desk-sub">Not BookMyShow or MakeMyTrip — local catalog only.</p>
+      {empty && <p className="desk-empty">Book a movie or a trip and it shows up here.</p>}
+      {desk.movies.map((m) => (
+        <article key={`${m.code}-${m.id}`} className="hold movie">
+          <span className="hold-kind">Movie</span>
+          <strong>{m.title}</strong>
+          <p>
+            {m.theater}
+            <br />
+            {m.date} · {m.time} · {m.screen} · {m.seats} seat{m.seats === 1 ? "" : "s"}
+          </p>
+          <p className="hold-meta">
+            ₹{m.price} · {m.code}
+          </p>
+        </article>
+      ))}
+      {desk.trips.map((t) => (
+        <article key={`${t.code}-${t.id}`} className="hold trip">
+          <span className="hold-kind">{t.kind}</span>
+          <strong>{t.title}</strong>
+          <p>
+            {t.detail}
+            <br />
+            {t.date} · {t.travelers} traveler{t.travelers === 1 ? "" : "s"}
+          </p>
+          <p className="hold-meta">
+            ₹{t.price} · {t.code}
+          </p>
+        </article>
+      ))}
+    </div>
   );
 }

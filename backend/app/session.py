@@ -6,6 +6,7 @@ import logging
 import re
 import time
 import uuid
+import json
 from typing import Any, Literal
 
 from fastapi import WebSocket
@@ -15,6 +16,7 @@ from app.audio.endpointing import Endpointing
 from app.providers import llm as llm_provider
 from app.providers import stt as stt_provider
 from app.providers import tts as tts_provider
+from app.tools.desk import DeskTools
 
 log = logging.getLogger("harbor.session")
 
@@ -36,6 +38,48 @@ def _new_id() -> str:
 
 def _norm(text: str) -> str:
     return _NOISE.sub("", text.lower()).strip()
+
+
+_WAKE_PREFIX = re.compile(
+    r"^(?:ok(?:ay)?|hey|hi|hy|hello|yo|hiya)(?:\s+there)?\s+cut\s+",
+    re.I,
+)
+
+GREETINGS = {
+    "cut",
+    "hi cut",
+    "hy cut",
+    "hey cut",
+    "hello cut",
+    "yo cut",
+    "ok cut",
+    "okay cut",
+    "hiya cut",
+    "hey there cut",
+    "hi there cut",
+}
+
+GREET_LINE = "Hey, I'm Cut. What can I help with?"
+
+
+def is_name_greeting(text: str) -> bool:
+    return _norm(text) in GREETINGS
+
+
+def to_llm_utterance(text: str) -> str:
+    """Strip 'hi cut' / 'hey cut' so the model hears the real request."""
+    if is_name_greeting(text):
+        return (
+            "The user just said hi to you by name. Your name is Cut. "
+            "Greet them in one short sentence and offer to help. "
+            "Do not explain the word cut, scissors, film, or interrupting."
+        )
+    a = _norm(text)
+    if _WAKE_PREFIX.match(a):
+        rest = _WAKE_PREFIX.sub("", a, count=1).strip()
+        if rest:
+            return rest
+    return text
 
 
 def is_echo(text: str, last_assistant: str) -> bool:
@@ -178,6 +222,10 @@ class VoiceSession:
         self.turn_started_at = 0.0
         self.first_audio_at = 0.0
         self.deaf_until = 0.0
+        self.desk = DeskTools(on_change=self._on_desk)
+
+    async def _on_desk(self, snap: dict[str, Any]) -> None:
+        await self.send({"type": "desk", "payload": snap})
 
     async def send(self, payload: dict[str, Any]) -> None:
         async with self._send_lock:
@@ -193,6 +241,8 @@ class VoiceSession:
         await self.send({"type": "state", "state": state, "generation_id": self.generation_id})
 
     def _wants_hang_up(self, text: str) -> bool:
+        if is_name_greeting(text):
+            return False
         recently_spoke = self.last_speak_at and (time.monotonic() - self.last_speak_at) < 8.0
         return is_stop_command(
             text,
@@ -219,8 +269,6 @@ class VoiceSession:
                 text = message.get("text")
                 if not text:
                     continue
-                import json
-
                 try:
                     msg = json.loads(text)
                 except json.JSONDecodeError:
@@ -340,6 +388,8 @@ class VoiceSession:
         self.history.clear()
         self.last_assistant = ""
         self.interrupted_last = False
+        self.desk.reset()
+        await self.send({"type": "desk", "payload": self.desk.state.snapshot()})
         self._clear_listen()
         await self._set_state("listening")
 
@@ -371,19 +421,34 @@ class VoiceSession:
             async def on_token(delta: str) -> None:
                 await self.send({"type": "llm_token", "text": delta, "generation_id": gen})
 
-            async for sentence in llm_provider.stream_spoken_reply(
-                history=self.history,
-                user_text=text,
-                interrupted=self.interrupted_last,
-                on_token=on_token,
-                cancel=cancel,
-            ):
-                if cancel.is_set() or gen != self.generation_id:
-                    return
-                spoken_parts.append(sentence)
-                if self.state != "speaking":
+            if is_name_greeting(text):
+                await on_token(GREET_LINE)
+                spoken_parts.append(GREET_LINE)
+                if not (cancel.is_set() or gen != self.generation_id):
                     await self._set_state("speaking")
-                await self._speak(sentence, gen, cancel)
+                    await self._speak(GREET_LINE, gen, cancel)
+            else:
+                async def execute_tool(name: str, arguments: str) -> str:
+                    if cancel.is_set() or gen != self.generation_id:
+                        return json.dumps({"error": "cancelled"})
+                    result = await self.desk.execute(name, arguments)
+                    await self.send({"type": "tool", "name": name, "generation_id": gen})
+                    return result
+
+                async for sentence in llm_provider.stream_spoken_reply(
+                    history=self.history,
+                    user_text=to_llm_utterance(text),
+                    interrupted=self.interrupted_last,
+                    on_token=on_token,
+                    cancel=cancel,
+                    execute_tool=execute_tool,
+                ):
+                    if cancel.is_set() or gen != self.generation_id:
+                        return
+                    spoken_parts.append(sentence)
+                    if self.state != "speaking":
+                        await self._set_state("speaking")
+                    await self._speak(sentence, gen, cancel)
 
             if cancel.is_set() or gen != self.generation_id:
                 return

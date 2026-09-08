@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { VoiceEngine } from "../audio/engine";
 import { bytesToBase64 } from "../audio/resample";
 import { isStopCommand } from "../audio/stopCommand";
-import type { InspectorEvent, Line, Pipeline, SessionState } from "../types";
+import type { Desk, InspectorEvent, Line, Pipeline, SessionState } from "../types";
 
 const ECHO_GUARD_MS = 400;
 const BARGE_RMS = 0.055;
@@ -29,6 +29,7 @@ export function useVoiceSession() {
   const [pipeline, setPipeline] = useState<Pipeline>(emptyPipeline);
   const [micOn, setMicOn] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [desk, setDesk] = useState<Desk>({ movies: [], trips: [] });
   const [keysOk, setKeysOk] = useState<boolean | null>(null);
   const [socketOn, setSocketOn] = useState(false);
 
@@ -235,6 +236,17 @@ export function useVoiceSession() {
         return;
       }
 
+      if (type === "desk") {
+        const payload = msg.payload as Desk | undefined;
+        if (payload) setDesk({ movies: payload.movies || [], trips: payload.trips || [] });
+        return;
+      }
+
+      if (type === "tool") {
+        pushEvent("tool", String(msg.name || "tool"));
+        return;
+      }
+
       if (type === "error") {
         setError(String(msg.message || "Server error"));
         pushEvent("error", String(msg.message));
@@ -393,6 +405,7 @@ export function useVoiceSession() {
     flushPlaybackNow();
     setLines([]);
     setError(null);
+    setDesk({ movies: [], trips: [] });
     wsRef.current?.send(JSON.stringify({ type: "reset" }));
     setSessionState("listening");
   }, [flushPlaybackNow, setSessionState]);
@@ -405,6 +418,7 @@ export function useVoiceSession() {
     socketOn,
     error,
     keysOk,
+    desk,
     enableMic,
     disableMic,
     sendText,

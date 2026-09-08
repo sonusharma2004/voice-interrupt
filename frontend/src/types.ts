@@ -14,13 +14,34 @@ export type Line = {
   partial?: boolean;
 };
 
-export type TicketLine = { item: string; qty: number; mods: string };
-export type Booking = { name: string; party: number; date: string; time: string };
-
-export type Ticket = {
-  lines: TicketLine[];
+export type MovieHold = {
+  id: string;
+  title: string;
+  theater: string;
+  time: string;
+  date: string;
+  seats: number;
+  screen: string;
+  price: number;
+  code: string;
   confirmed: boolean;
-  bookings: Booking[];
+};
+
+export type TripHold = {
+  id: string;
+  kind: string;
+  title: string;
+  detail: string;
+  date: string;
+  travelers: number;
+  price: number;
+  code: string;
+  confirmed: boolean;
+};
+
+export type Desk = {
+  movies: MovieHold[];
+  trips: TripHold[];
 };
 
 export type CascadeStep = { step: string; ms: number };

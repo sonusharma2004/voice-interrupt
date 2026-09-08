@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Transcript } from "./components/Transcript";
 import { Inspector } from "./components/Inspector";
+import { DeskCard } from "./components/Ticket";
 import { useVoiceSession } from "./hooks/useVoiceSession";
 
 export function App() {
@@ -29,7 +30,8 @@ export function App() {
         <button type="button" className="new-chat" onClick={() => session.newChat()}>
           <span>+</span> New chat
         </button>
-        <p className="side-note">Tap the mic to talk. Say “stop” to hang up voice, like ChatGPT.</p>
+        <p className="side-note">Tap the mic. Say “stop” to hang up. Movies and trips are a local demo catalog, not the real sites.</p>
+        <DeskCard desk={session.desk} />
       </aside>
 
       <div className="main">
@@ -49,6 +51,11 @@ export function App() {
         </header>
 
         <Transcript lines={session.lines} />
+        {(session.desk.movies.length > 0 || session.desk.trips.length > 0) && (
+          <div className="desk-mobile">
+            <DeskCard desk={session.desk} />
+          </div>
+        )}
 
         <div className="dock">
           {session.error && <p className="err">{session.error}</p>}
@@ -87,7 +94,7 @@ export function App() {
           <p className="disclaimer">
             {session.keysOk === false
               ? "API key missing — add GROQ_API_KEY to .env"
-              : "Cut can make mistakes. Check important info."}
+              : "Demo bookings only. Cut can make mistakes."}
           </p>
         </div>
       </div>

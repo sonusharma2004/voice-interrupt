@@ -21,6 +21,7 @@ async def transcribe(pcm: bytes) -> str:
         model=settings.groq_stt_model,
         language="en",
         temperature=0.0,
+        prompt="The assistant is named Cut. Hi Cut. Hey Cut. Hello Cut. Stop. Okay.",
     )
     text = (getattr(resp, "text", None) or "").strip()
     log.info("stt: %s", text[:160])

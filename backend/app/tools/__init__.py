@@ -1,1 +1,1 @@
-"""Café tools bound to a single voice session."""
+"""Session booking desk: demo movies and trips."""
