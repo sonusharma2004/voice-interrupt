@@ -1,27 +1,30 @@
-# Harbor & Rye
+# Mira
 
-A café voice host that you can actually interrupt.
+A browser voice assistant you can actually interrupt — like ChatGPT out loud.
 
-Browser microphone in, Mira speaks back, and if you cut her off mid-sentence playback dies immediately, the in-flight STT/LLM/TTS turn is cancelled, and your new words become the next turn. No leftover upstream request sitting there burning tokens.
+Talk or type about anything. If you cut Mira off mid-sentence, playback dies immediately, the in-flight STT/LLM/TTS turn is cancelled, and your new words become the next turn. No leftover upstream request sitting there burning tokens.
+
+Say **stop** (or tap the mic) and voice mode hangs up: she goes quiet, generation is cancelled, and the microphone actually turns off. She does not answer “okay, I’m stopping” and keep listening.
 
 ## What is in here
 
+- ChatGPT-style UI: sidebar, transcript, text box, mic, send
 - FastAPI WebSocket session with a generation id on every turn
-- Client AudioWorklet capture + a flushable playback queue (20ms fade)
-- Soft barge-in: backchannels do not cancel; ~260ms of real speech does
+- Client AudioWorklet capture + a flushable playback queue
+- Barge-in: talking over her flushes speakers and starts a new turn
+- Hang-up: `stop`, `stop talking`, `goodbye`, `I’m going to go` mute the mic (Whisper often hears “stop” as “so” — that hangs up too)
+- Mic is closed while she thinks/speaks so she does not transcribe herself
 - Adaptive endpointing so trailing off (`and then I… um`) waits longer than a finished sentence
-- Groq Whisper → OpenAI `gpt-4o-mini` (tools) → OpenAI `tts-1` streaming PCM
-- A small café brain: menu RAG, tickets, table holds
-- Pipeline inspector so the cancel cascade is visible on camera
+- Pipeline inspector (Details) so the cancel cascade is visible on camera
 
 ## Run it
 
-You need two terminals, Python 3.11+, and Node 20+.
+You need two terminals, Python 3.11+, and Node 20+. Groq is enough; OpenAI is optional.
 
 ```bash
 # 1. keys
 cp .env.example .env
-# paste OPENAI_API_KEY and GROQ_API_KEY
+# paste GROQ_API_KEY
 
 # 2. backend
 cd backend
@@ -36,19 +39,15 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). Click **Open the line**, allow the microphone, then talk.
+Open [http://localhost:5173](http://localhost:5173). Tap the **mic**, allow the microphone, then talk. You can also type and press Enter.
 
 ## Demo script (~90 seconds)
 
-1. “What’s vegan, and do you have oat milk?”
-2. Cut her off: “Actually just a cortado and a croissant.”
-3. Watch the inspector: playback flush, then TTS/LLM abort, struck-through text.
-4. Trail off: “And also can I… wait…” — she should wait, then pick it up.
-5. “Book a table for two tomorrow at ten. I’m Sam.”
-
-## API keys
-
-See the steps at the bottom of this file, or the note returned with the first run.
+1. Tap the mic. “Explain gravity like I’m five.”
+2. Cut her off: “Actually, what’s 17 times 24?”
+3. Watch Details: playback flush, then TTS/LLM abort, struck-through text.
+4. Trail off: “And also can you… wait…” — she should wait, then pick it up.
+5. Say **stop**. Speech dies, the mic button goes gray, she does not keep chatting. Tap the mic to talk again.
 
 ## Stack
 
@@ -57,6 +56,7 @@ See the steps at the bottom of this file, or the note returned with the first ru
 | Backend | FastAPI + WebSockets + asyncio cancellation |
 | Frontend | Vite, React, AudioWorklets |
 | STT | Groq `whisper-large-v3-turbo` |
-| LLM | OpenAI `gpt-4o-mini` + café tools |
-| TTS | OpenAI `tts-1` PCM stream (24 kHz) |
-| RAG | `text-embedding-3-small` over `/backend/app/knowledge` |
+| LLM | Groq `openai/gpt-oss-20b` (no tools; general chat) |
+| TTS | Microsoft edge-tts (`en-US-AvaNeural`, mp3 per sentence) |
+
+OpenAI TTS is still wired as an optional fallback if you set `TTS_PROVIDER=openai` and `OPENAI_API_KEY`.
