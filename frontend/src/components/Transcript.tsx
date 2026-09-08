@@ -31,7 +31,7 @@ export function Transcript({ lines }: { lines: Line[] }) {
             </div>
           ) : (
             <div key={line.id} className={`row assistant ${line.interrupted ? "cut" : ""} ${line.partial ? "partial" : ""}`}>
-              <div className="avatar mira">M</div>
+              <div className="avatar cut">C</div>
               <div className="prose">
                 <p>{line.text || (line.partial ? "…" : "")}</p>
                 {line.interrupted && <span className="stopped">Stopped</span>}

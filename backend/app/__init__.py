@@ -1,1 +1,1 @@
-"""Harbor & Rye voice host backend."""
+"""Cut voice assistant backend."""

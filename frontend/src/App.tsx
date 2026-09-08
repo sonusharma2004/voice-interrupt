@@ -38,7 +38,7 @@ export function App() {
             <button type="button" className="new-inline" onClick={() => session.newChat()}>
               New chat
             </button>
-            <strong>Mira</strong>
+            <strong>Cut</strong>
           </div>
           <div className="top-actions">
             {session.micOn && <span className={`live-tag is-${session.state}`}>{label(session.state)}</span>}
@@ -57,7 +57,7 @@ export function App() {
               ref={area}
               rows={1}
               value={draft}
-              placeholder="Message Mira"
+              placeholder="Message Cut"
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
@@ -87,7 +87,7 @@ export function App() {
           <p className="disclaimer">
             {session.keysOk === false
               ? "API key missing — add GROQ_API_KEY to .env"
-              : "Mira can make mistakes. Check important info."}
+              : "Cut can make mistakes. Check important info."}
           </p>
         </div>
       </div>

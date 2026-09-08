@@ -1,19 +1,19 @@
-# Mira
+# Cut
 
 A browser voice assistant you can actually interrupt — like ChatGPT out loud.
 
-Talk or type about anything. If you cut Mira off mid-sentence, playback dies immediately, the in-flight STT/LLM/TTS turn is cancelled, and your new words become the next turn. No leftover upstream request sitting there burning tokens.
+Talk or type about anything. If you cut it off mid-sentence, playback dies immediately, the in-flight STT/LLM/TTS turn is cancelled, and your new words become the next turn. No leftover upstream request sitting there burning tokens.
 
-Say **stop** (or tap the mic) and voice mode hangs up: she goes quiet, generation is cancelled, and the microphone actually turns off. She does not answer “okay, I’m stopping” and keep listening.
+Say **stop** (or tap the mic) and voice mode hangs up: it goes quiet, generation is cancelled, and the microphone actually turns off. It does not answer “okay, I’m stopping” and keep listening.
 
 ## What is in here
 
 - ChatGPT-style UI: sidebar, transcript, text box, mic, send
 - FastAPI WebSocket session with a generation id on every turn
 - Client AudioWorklet capture + a flushable playback queue
-- Barge-in: talking over her flushes speakers and starts a new turn
+- Barge-in: talking over it flushes speakers and starts a new turn
 - Hang-up: `stop`, `stop talking`, `goodbye`, `I’m going to go` mute the mic (Whisper often hears “stop” as “so” — that hangs up too)
-- Mic is closed while she thinks/speaks so she does not transcribe herself
+- Mic is closed while it thinks/speaks so it does not transcribe itself
 - Adaptive endpointing so trailing off (`and then I… um`) waits longer than a finished sentence
 - Pipeline inspector (Details) so the cancel cascade is visible on camera
 
@@ -44,10 +44,10 @@ Open [http://localhost:5173](http://localhost:5173). Tap the **mic**, allow the 
 ## Demo script (~90 seconds)
 
 1. Tap the mic. “Explain gravity like I’m five.”
-2. Cut her off: “Actually, what’s 17 times 24?”
+2. Talk over it: “Actually, what’s 17 times 24?”
 3. Watch Details: playback flush, then TTS/LLM abort, struck-through text.
-4. Trail off: “And also can you… wait…” — she should wait, then pick it up.
-5. Say **stop**. Speech dies, the mic button goes gray, she does not keep chatting. Tap the mic to talk again.
+4. Trail off: “And also can you… wait…” — it should wait, then pick it up.
+5. Say **stop**. Speech dies, the mic button goes gray, it does not keep chatting. Tap the mic to talk again.
 
 ## Stack
 

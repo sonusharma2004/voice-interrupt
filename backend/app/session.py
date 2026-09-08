@@ -39,7 +39,7 @@ def _norm(text: str) -> str:
 
 
 def is_echo(text: str, last_assistant: str) -> bool:
-    """Drop transcripts that are Mira hearing herself."""
+    """Drop transcripts that are Cut hearing itself."""
     a = _norm(text)
     if not a:
         return True
@@ -102,7 +102,7 @@ STOP_PHRASES = {
     "you stop now",
     "can you stop",
     "could you stop",
-    "mira stop",
+    "cut stop",
     "ok stop",
     "okay stop",
     "im going to go",

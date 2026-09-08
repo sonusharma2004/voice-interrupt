@@ -22,7 +22,7 @@ export function Orb({ state, rms }: { state: SessionState; rms: number }) {
         <i />
       </div>
       <div className="orb-label">
-        <em>Mira</em>
+        <em>Cut</em>
         <strong>{LABELS[state]}</strong>
       </div>
     </div>

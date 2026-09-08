@@ -17,6 +17,6 @@ We take reservations for the communal nook and the two window two-tops. Walk-ins
 Each half-hour slot can hold two bookings, totaling at most 8 guests.
 We do not book the entire room for private events during service.
 
-## What Mira should do
+## What Cut should do
 
 Check availability before promising. Repeat the time, party size, and name back once before confirming. If a slot is full, offer the nearest open time the same day.

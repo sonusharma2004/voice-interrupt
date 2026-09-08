@@ -32,7 +32,7 @@ const EXACT = new Set([
   "you stop now",
   "can you stop",
   "could you stop",
-  "mira stop",
+  "cut stop",
   "ok stop",
   "okay stop",
   "im going to go",
